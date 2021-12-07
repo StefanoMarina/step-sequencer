@@ -9,6 +9,7 @@ function play() {
   this.step = 0;
   this._playing = true;
   loop.call(this);
+  this.emit('play', this.sequence[0]);
 }
 
 function loop() {
@@ -20,7 +21,11 @@ function loop() {
 }
 
 function advance() {
-  this.emit('' + this.step, this.sequence[this.step]);
+  if (this.altEvent)
+    this.emit('step', this.step, this.sequence[this.step]);
+  else
+    this.emit('' + this.step, this.sequence[this.step]);
+  
   this.step = (++this.step) % this.sequence.length;
 }
 
@@ -28,12 +33,14 @@ function resume() {
   if (this._playing) return;
   this._playing = true;
   loop.call(this);
+  this.emit('resume', this.step, this.sequence[this.step]);
 }
 
 function stop() {
   if (!this._playing) return;
   this._playing = false;
   this.timer.clearTimeout();
+  this.emit('stop', this.step, this.sequence[this.step]);
 }
 
 function setTempo(tempo) {
@@ -47,12 +54,14 @@ function setSequence(division, sequence) {
   if (!(sequence instanceof Array)) throw new TypeError('Sequence must be an array');
 
   this.division = division;
-  this.sequence = sequence;
   this.timeout = Math.floor((60 / (this.tempo * this.division)) * 10e8) + 'n';
+  
+  this.emit('sequence-change', this.sequence, sequence, this.step);
+  this.sequence = sequence;
   this.step %= sequence.length;
 }
 
-function StepSequencer(tempo, division, sequence) {
+function StepSequencer(tempo, division, sequence, altEvent) {
   if (tempo && typeof tempo !== 'number') throw new TypeError('Tempo must be a number');
   if (division && typeof division !== 'number') throw new TypeError('Division must be a number');
   if (sequence && !(sequence instanceof Array)) throw new TypeError('Sequence must be an array');
@@ -60,6 +69,7 @@ function StepSequencer(tempo, division, sequence) {
   this.tempo = tempo || 120;
   this.division = division || 4;
   this.sequence = sequence || [];
+  this.altEvent = (altEvent !== undefined) ? altEvent : false;
   this.step = 0;
   this.timer = new NanoTimer();
   this.timeout = Math.floor((60 / (this.tempo * this.division)) * 10e8) + 'n';
